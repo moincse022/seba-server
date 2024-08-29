@@ -11,7 +11,6 @@ app.use(express.json());
 
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.b2nov.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
-// const uri = "mongodb+srv://moincse022:123@cluster0.b2nov.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -28,17 +27,17 @@ async function run() {
     // await client.connect();
     // Send a ping to confirm a successful connection
 
-    const docterCollection = client.db("doctorsInfo").collection("doctors");
-  app.post('/',async(req,res)=>{
-    const data = req.body;
-    console.log(data);
-    const result = await docterCollection.insertOne(data);
-    res.send(result);
-  })
-  app.get('/doctor',async(req,res)=>{
-    const result = await docterCollection.find({}).toArray();
-    res.send(result);
-  })
+    const doctorCollection = client.db("doctorsInfo").collection("doctors");
+    app.post('/', async (req, res) => {
+      const data = req.body;
+      console.log(data);
+      const result = await doctorCollection.insertOne(data);
+      res.send(result);
+    })
+    app.get('/doctor', async (req, res) => {
+      const result = await docterCollection.find({}).toArray();
+      res.send(result);
+    })
 
 
     await client.db("admin").command({ ping: 1 });
