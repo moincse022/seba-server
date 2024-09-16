@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-const pdf = require('html-pdf');
+const { jsPDF } = require("jspdf");
+const axios = require("axios");
 const app = express();
 require("dotenv").config();
 const port = process.env.PORT || 3000;
@@ -19,13 +20,149 @@ const client = new MongoClient(uri, {
   },
 });
 
+// Helper function to convert image URL to Base64
+const getBase64ImageFromURL = async (url) => {
+  const response = await axios.get(url, { responseType: "arraybuffer" });
+  const base64 = Buffer.from(response.data, "binary").toString("base64");
+  return `data:image/jpeg;base64,${base64}`;
+};
+
 async function run() {
   try {
     const doctorCollection = client.db("doctorsInfo").collection("doctors");
 
+    // Route to download PDF with multi-page support
+    // app.get("/downloadDoctorPdf", async (req, res) => {
+    //   try {
+    //     const doctors = await doctorCollection.find({}).toArray();
+
+    //     // Initialize jsPDF
+    //     const doc = new jsPDF();
+
+    //     let yOffset = 20;
+    //     const pageHeight = doc.internal.pageSize.height;
+    //     const marginBottom = 30; // Margin from the bottom before adding a new page
+
+    //     for (const doctor of doctors) {
+    //       doc.setFontSize(12);
+    //       doc.text(`Name: ${doctor.doctorsName}`, 10, yOffset);
+    //       yOffset += 10;
+    //       doc.text(`Email: ${doctor.doctorsEmail}`, 10, yOffset);
+    //       yOffset += 10;
+    //       doc.text(`Qualifications: ${doctor.qualifications}`, 10, yOffset);
+    //       yOffset += 10;
+    //       doc.text(`Specialties: ${doctor.specialty.map(spec => spec.label).join(", ")}`, 10, yOffset);
+    //       yOffset += 10;
+    //       doc.text(`Years of Experience: ${doctor.yearsOfExperience}`, 10, yOffset);
+    //       yOffset += 10;
+    //       doc.text(`Designation: ${doctor.designationAndDepartment}`, 10, yOffset);
+    //       yOffset += 10;
+
+    //       // Get Base64 image for each doctor
+    //       const base64Image = await getBase64ImageFromURL(doctor.photo);
+    //       doc.addImage(base64Image, "JPEG", 10, yOffset, 50, 50); // Adjust dimensions as needed
+    //       yOffset += 60;
+
+    //       // Add chamber details
+    //       doctor.chamberInfos.forEach((chamber, i) => {
+    //         doc.text(`Chamber ${i + 1}: ${chamber.chamberName}`, 10, yOffset);
+    //         yOffset += 10;
+    //         doc.text(`Location: ${chamber.location}`, 10, yOffset);
+    //         yOffset += 10;
+    //         doc.text(`Visiting Hours: ${chamber.visitingHour}`, 10, yOffset);
+    //         yOffset += 10;
+    //         doc.text(`Price: ${chamber.visitingPrice} BDT`, 10, yOffset);
+    //         yOffset += 20;
+    //       });
+
+    //       // Check if content exceeds the page height and add a new page if necessary
+    //       if (yOffset > pageHeight - marginBottom) {
+    //         doc.addPage();
+    //         yOffset = 20; // Reset the yOffset for the new page
+    //       }
+    //     }
+
+    //     // Output the PDF as a buffer
+    //     const pdfOutput = doc.output("arraybuffer");
+
+    //     // Send the PDF to the client
+    //     res.setHeader("Content-Type", "application/pdf");
+    //     res.setHeader("Content-Disposition", "attachment; filename=doctors.pdf");
+    //     res.send(Buffer.from(pdfOutput));
+    //   } catch (error) {
+    //     console.error("Error generating PDF:", error);
+    //     res.status(500).send("Error generating PDF");
+    //   }
+    // });
+    app.get("/downloadDoctorPdf", async (req, res) => {
+      try {
+        const doctors = await doctorCollection.find({}).toArray();
+    
+        // Initialize jsPDF
+        const doc = new jsPDF();
+    
+        let yOffset = 20;
+        const pageHeight = doc.internal.pageSize.height;
+        const marginBottom = 30; // Margin from the bottom before adding a new page
+    
+        for (const doctor of doctors) {
+          doc.setFontSize(12);
+          doc.text(`Name: ${doctor.doctorsName}`, 10, yOffset);
+          yOffset += 10;
+          doc.text(`Email: ${doctor.doctorsEmail}`, 10, yOffset);
+          yOffset += 10;
+          doc.text(`Phone: ${doctor.mobileNumber || 'N/A'}`, 10, yOffset);  // Add phone number
+          yOffset += 10;
+          doc.text(`Qualifications: ${doctor.qualifications}`, 10, yOffset);
+          yOffset += 10;
+          doc.text(`Specialties: ${doctor.specialty.map(spec => spec.label).join(", ")}`, 10, yOffset);
+          yOffset += 10;
+          doc.text(`Years of Experience: ${doctor.yearsOfExperience}`, 10, yOffset);
+          yOffset += 10;
+          doc.text(`Designation: ${doctor.designationAndDepartment}`, 10, yOffset);
+          yOffset += 10;
+    
+          // Get Base64 image for each doctor
+          const base64Image = await getBase64ImageFromURL(doctor.photo);
+          doc.addImage(base64Image, "JPEG", 10, yOffset, 50, 50); // Adjust dimensions as needed
+          yOffset += 60;
+    
+          // Add chamber details
+          doctor.chamberInfos.forEach((chamber, i) => {
+            doc.text(`Chamber ${i + 1}: ${chamber.chamberName}`, 10, yOffset);
+            yOffset += 10;
+            doc.text(`Location: ${chamber.location}`, 10, yOffset);
+            yOffset += 10;
+            doc.text(`Visiting Hours: ${chamber.visitingHour}`, 10, yOffset);
+            yOffset += 10;
+            doc.text(`Price: ${chamber.visitingPrice} BDT`, 10, yOffset);
+            yOffset += 20;
+          });
+    
+          // Check if content exceeds the page height and add a new page if necessary
+          if (yOffset > pageHeight - marginBottom) {
+            doc.addPage();
+            yOffset = 20; // Reset the yOffset for the new page
+          }
+        }
+    
+        // Output the PDF as a buffer
+        const pdfOutput = doc.output("arraybuffer");
+    
+        // Send the PDF to the client
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", "attachment; filename=doctors.pdf");
+        res.send(Buffer.from(pdfOutput));
+      } catch (error) {
+        console.error("Error generating PDF:", error);
+        res.status(500).send("Error generating PDF");
+      }
+    });
+    
+
+    // Other routes remain unchanged
     app.post("/addDoctor", async (req, res) => {
       const data = req.body;
-      console.log(data);
       const result = await doctorCollection.insertOne(data);
       res.send(result);
     });
@@ -42,42 +179,12 @@ async function run() {
       res.send(result);
     });
 
-    // Endpoint to generate and download PDF
-    app.get("/downloadDoctorPdf", async (req, res) => {
-      try {
-        const doctors = await doctorCollection.find({}).toArray();
-        const htmlContent = `
-        <h1>Doctors Information</h1>
-        <ul style="display: flex; flex-direction: row; flex-wrap: wrap; list-style-type: none; padding: 0;">
-          ${doctors.map(doctor => `
-            <li style="list-style-type: none; padding: 10px; border: 1px solid #ccc;">
-              <strong>Name:</strong> ${doctor.doctorsName} <br />
-              <strong>Specialization:</strong> ${doctor.workplace} <br />
-              <strong>Contact:</strong> ${doctor.contact} <br />
-              <img src="${doctor.photo}" alt="Doctor's Photo" width="100" height="100" />
-            </li>
-          `).join('')}
-        </ul>
-      `;
-
-        pdf.create(htmlContent).toStream((err, stream) => {
-          if (err) {
-            return res.status(500).send('Error generating PDF');
-          }
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', 'attachment; filename=doctors.pdf');
-          stream.pipe(res);
-        });
-      } catch (error) {
-        console.error('Error generating PDF:', error);
-        res.status(500).send('Error generating PDF');
-      }
-    });
-
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
   } finally {
-    // await client.close(); // Uncomment this if you want to close the client after each run
+    // Uncomment this if you want to close the client after each run
+    // await client.close();
   }
 }
 
@@ -88,5 +195,5 @@ app.get("/", (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`);
+  console.log(`App listening on port ${port}`);
 });
